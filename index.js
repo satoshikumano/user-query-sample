@@ -1,46 +1,39 @@
 let popsicle = require('popsicle');
 let Promise = require('bluebird');
-
-// Replace it with your app id.
-let appID = '__APP_ID__';
-// Replace it with your app key.
-let appKey = '__APP_KEY__';
-
-let appHost = 'api-jp.kii.com'
-
-// Replace it with Obtained admin token.
-let adminToken = '__ADMIN_TOKEN__';
-
-let userCount = 0;
+let config = require('./config.js');
 
 function getUsers(paginationKey) {
     return new Promise(function(resolve, reject) {
         popsicle.request({
                 method: 'POST',
-                url: 'https://' + appHost + '/api/apps/' + appID + '/users/query',
+                url: 'https://' + config.appHost + '/api/apps/' + config.appID + '/users/query',
                 body: {
                     userQuery: {
                         clause: {
                             type: 'all'
-                        }
+                        },
+                        orderBy: 'loginName',
+                        descending: false,
                     },
                     bestEffortLimit: 10,
                     paginationKey: paginationKey
                 },
                 headers: {
                     'Content-Type': 'application/vnd.kii.userqueryrequest+json',
-                    'Authorization': 'Bearer ' + adminToken
+                    'Authorization': 'Bearer ' + config.adminToken
                 }
         }).use(popsicle.plugins.parse('json'))
         .then(function(res) {
+                if (res.statusType() != 2) {
+                    reject(new Error(res.body));
+                }
                 //console.log(res);
                 let users = res.body.results;
                 users.forEach(function(u) {
-                        // ここでは例としてユーザーをカウントしていますが
+                        // ここでは例としてユーザー名を表示していますが
                         // 各ユーザーのデータにアクセスして必要な処理を行ってください。
-                        userCount++;
+                        console.log(u.loginName);
                 });
-                console.log('count:' + userCount);
                 let nextPaginationKey = res.body.nextPaginationKey;
                 resolve(nextPaginationKey);
         })
@@ -57,7 +50,7 @@ function loop(promise) {
                         if (paginationKey) {
                             proc(getUsers(paginationKey));
                         } else {
-                            resolve(userCount);
+                            resolve();
                         }
                 }).catch(function(error) {
                         reject(error);
@@ -67,9 +60,8 @@ function loop(promise) {
     });
 }
 
-loop(getUsers()).then(function(userCount) {
+loop(getUsers()).then(function() {
         console.log('operation succeeded');
-        console.log('user count: ' + userCount);
 }).catch(function(error) {
         console.log('operation failed.');
         console.log(error);
